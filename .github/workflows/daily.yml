@@ -2,9 +2,8 @@ name: Daily CSS Current Affairs Package
 
 on:
   schedule:
-    # 03:00 UTC = 08:00 AM Pakistan Time (PKT is UTC+5)
-    - cron: "0 3 * * *"
-  workflow_dispatch: {}   # lets you also trigger it manually from the Actions tab
+    - cron: "0 3 * * *"   # 03:00 UTC = 08:00 AM Pakistan Time
+  workflow_dispatch: {}
 
 jobs:
   run-daily:

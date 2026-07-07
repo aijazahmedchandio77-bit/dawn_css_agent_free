@@ -1,7 +1,7 @@
 """
 Builds a clean PDF containing:
 - Today's article title + full summary + vocabulary
-- 50 current affairs MCQs (Pakistan + International), with an answer key at the end
+- current affairs MCQs (Pakistan + International), with an answer key at the end
 """
 import os
 from datetime import datetime
@@ -14,7 +14,7 @@ from reportlab.platypus import (
 import config
 
 
-def build_daily_pdf(article: dict, package: dict, css_resources: str) -> str:
+def build_daily_pdf(article: dict, package: dict, mcqs: list, css_resources: str) -> str:
     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d")
     filepath = os.path.join(config.OUTPUT_DIR, f"css_current_affairs_{date_str}.pdf")
@@ -61,13 +61,13 @@ def build_daily_pdf(article: dict, package: dict, css_resources: str) -> str:
                 story.append(Paragraph(line.strip(), body))
 
     story.append(PageBreak())
-    story.append(Paragraph("50 Current Affairs MCQs (Pakistan + International)", h2))
+    story.append(Paragraph(f"Current Affairs MCQs — {len(mcqs)} Questions (Pakistan + International)", h2))
 
     answer_key = []
-    for idx, mcq in enumerate(package["mcqs"], start=1):
+    for idx, mcq in enumerate(mcqs, start=1):
         story.append(Paragraph(f"{idx}. [{mcq.get('category','')}] {mcq['question']}", mcq_style))
         for key in ["A", "B", "C", "D"]:
-            opt = mcq["options"].get(key, "")
+            opt = mcq.get("options", {}).get(key, "")
             story.append(Paragraph(f"{key}) {opt}", option_style))
         answer_key.append(f"{idx}-{mcq.get('answer','?')}")
 

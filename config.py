@@ -1,49 +1,102 @@
 """
 Central configuration for the CSS AI Agent.
 
-Secrets are loaded from GitHub Actions Secrets:
-Settings -> Secrets and variables -> Actions
+Loads configuration from GitHub Actions Secrets or local
+environment variables.
+
+Required GitHub Secrets:
+
+- GEMINI_API_KEY
+- TELEGRAM_BOT_TOKEN
+- TELEGRAM_CHAT_ID
 """
 
 import os
 
 # ======================================================
-# API Keys
+# API KEYS
 # ======================================================
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "6345421988")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 # ======================================================
-# Gemini Model
+# GEMINI MODEL
 # ======================================================
 
-MODEL_NAME = "gemini-2.0-flash"
+# Change this if required
+MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
 
 # ======================================================
-# Dawn RSS Feeds
+# DAWN NEWS SOURCES
 # ======================================================
 
-# Latest News
-DAWN_HOME_FEED = "https://www.dawn.com/feeds/home"
-
-# Pakistan
-DAWN_PAKISTAN_FEED = "https://www.dawn.com/feeds/pakistan"
-
-# World
-DAWN_WORLD_FEED = "https://www.dawn.com/feeds/world"
-
-# Editorial
-DAWN_EDITORIAL_FEED = "https://www.dawn.com/feeds/editorials"
+# RSS feeds (change if Dawn updates them)
+DAWN_FEEDS = [
+    "https://www.dawn.com/feeds/home",
+    "https://www.dawn.com/feeds/pakistan",
+    "https://www.dawn.com/feeds/world",
+    "https://www.dawn.com/feeds/business",
+]
 
 # ======================================================
-# Output Directory
+# OUTPUT
 # ======================================================
 
 OUTPUT_DIR = "output"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-if not os.path.exists(OUTPUT_DIR):
-    os.makedirs(OUTPUT_DIR)
+# ======================================================
+# REQUEST SETTINGS
+# ======================================================
+
+HTTP_TIMEOUT = 120
+MAX_RETRIES = 5
+RETRY_DELAY = 20
+
+# ======================================================
+# AI SETTINGS
+# ======================================================
+
+HOURLY_BULLETIN_TOKENS = 600
+DAILY_SUMMARY_TOKENS = 1200
+PDF_SEARCH_TOKENS = 400
+
+TEMPERATURE = 0.4
+
+# ======================================================
+# VALIDATION
+# ======================================================
+
+missing = []
+
+if not GEMINI_API_KEY:
+    missing.append("GEMINI_API_KEY")
+
+if not TELEGRAM_BOT_TOKEN:
+    missing.append("TELEGRAM_BOT_TOKEN")
+
+if not TELEGRAM_CHAT_ID:
+    missing.append("TELEGRAM_CHAT_ID")
+
+if missing:
+    raise RuntimeError(
+        "Missing required environment variables: "
+        + ", ".join(missing)
+        + "\n\n"
+        "Add them as GitHub Secrets:\n"
+        "Settings → Secrets and variables → Actions"
+    )
+
+# ======================================================
+# STARTUP INFO
+# ======================================================
+
+print("===================================")
+print("CSS AI Agent Configuration Loaded")
+print("Model:", MODEL_NAME)
+print("Telegram Chat ID:", TELEGRAM_CHAT_ID)
+print("Output Directory:", OUTPUT_DIR)
+print("Feeds:", len(DAWN_FEEDS))
+print("===================================")

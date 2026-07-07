@@ -1,7 +1,5 @@
 """
-Thin wrapper around the Telegram Bot HTTP API. No external telegram library
-needed -- plain requests calls, which keeps the GitHub Actions job fast and
-dependency-light.
+Thin wrapper around the Telegram Bot HTTP API.
 """
 import requests
 import config

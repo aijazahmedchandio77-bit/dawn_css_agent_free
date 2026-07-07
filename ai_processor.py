@@ -1,4 +1,5 @@
 import json
+import time
 import requests
 import config
 
@@ -8,43 +9,67 @@ GEMINI_URL = (
 )
 
 
-def _call_gemini(prompt):
+def _call_gemini(prompt, max_tokens=1000):
+
     payload = {
         "contents": [
             {
                 "parts": [
-                    {"text": prompt}
+                    {
+                        "text": prompt
+                    }
                 ]
             }
         ],
         "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 1000
+            "temperature": 0.5,
+            "maxOutputTokens": max_tokens
         }
     }
 
-    response = requests.post(GEMINI_URL, json=payload, timeout=60)
+    for attempt in range(3):
 
-    if response.status_code != 200:
-        raise RuntimeError(response.text)
+        response = requests.post(
+            GEMINI_URL,
+            json=payload,
+            timeout=90
+        )
 
-    data = response.json()
+        if response.status_code == 200:
 
-    return data["candidates"][0]["content"]["parts"][0]["text"]
+            data = response.json()
+
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+
+        elif response.status_code == 429:
+
+            print(f"Rate limit reached. Waiting 60 seconds... ({attempt+1}/3)")
+
+            time.sleep(60)
+
+            continue
+
+        else:
+
+            raise RuntimeError(
+                f"Gemini Error {response.status_code}\n{response.text}"
+            )
+
+    raise RuntimeError("Gemini quota exceeded after 3 retries.")
 
 
 def make_daily_package(article, headline_pool):
 
     prompt = f"""
-Read this article and return JSON only.
+Read this article carefully.
 
 Title:
 {article['title']}
 
 Article:
-{article['full_text'][:2000]}
+{article['full_text'][:1500]}
 
-Return this JSON:
+Return ONLY valid JSON:
 
 {{
 "english_summary":"",
@@ -59,16 +84,26 @@ Return this JSON:
 
 Rules:
 
-- English summary: about 100 words
-- Urdu summary: about 100 words
-- Vocabulary: 10 words
-- MCQs: 10 only
+English Summary:
+100 words
+
+Urdu Summary:
+100 words
+
+Vocabulary:
+10 difficult words
+
+MCQs:
+10 current affairs MCQs
 """
 
-    text = _call_gemini(prompt)
+    text = _call_gemini(prompt, max_tokens=1000)
 
     start = text.find("{")
     end = text.rfind("}")
+
+    if start == -1 or end == -1:
+        raise RuntimeError("Gemini did not return valid JSON.")
 
     return json.loads(text[start:end+1])
 
@@ -76,24 +111,26 @@ Rules:
 def make_hourly_bulletin(headline_pool):
 
     headlines = "\n".join(
-        h["title"] for h in headline_pool[:10]
+        h["title"] for h in headline_pool[:8]
     )
 
     prompt = f"""
-Summarize these headlines into 5 short bullet points.
+Summarize these headlines into five short bullet points.
 
 {headlines}
 """
 
-    return _call_gemini(prompt)
+    return _call_gemini(prompt, max_tokens=400)
 
 
 def find_css_relevant_pdfs(topic):
 
     prompt = f"""
-Suggest five official CSS study resources for:
+Suggest five official CSS study resources related to:
 
 {topic}
+
+Return plain text only.
 """
 
-    return _call_gemini(prompt)
+    return _call_gemini(prompt, max_tokens=300)

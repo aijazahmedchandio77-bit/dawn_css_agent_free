@@ -1,116 +1,32 @@
 """
-Central configuration for the CSS AI Agent.
-
-Loads configuration from GitHub Actions Secrets or local
-environment variables.
-
-Required GitHub Secrets:
-
-- GEMINI_API_KEY
-- TELEGRAM_BOT_TOKEN
-- TELEGRAM_CHAT_ID
+Central config. All secrets come from environment variables, which are
+injected by GitHub Actions from repo secrets (Settings -> Secrets -> Actions).
+Never hardcode real tokens/keys in this file.
 """
-
 import os
 
-# ======================================================
-# API KEYS
-# ======================================================
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "6345421988")
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+# IMPORTANT: gemini-2.0-flash was deprecated by Google on 2026-06-01.
+# Use gemini-2.5-flash for the daily job (heavier, but only ~4 calls/day)
+# and gemini-2.5-flash-lite for the hourly job (light, but runs 24x/day and
+# has a much higher free daily-request quota than full Flash).
+# If Google renames/deprecates these again, check current free-tier model
+# names at https://ai.google.dev/gemini-api/docs/models before swapping in.
+MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME_LITE = "gemini-2.5-flash-lite"
 
-# ======================================================
-# GEMINI MODEL
-# ======================================================
+# Free tier is rate-limited (requests/minute and requests/day, varies by
+# account). These sleeps keep us well under typical per-minute limits even
+# on a restricted quota -- cheap insurance against 429 errors.
+SECONDS_BETWEEN_CALLS = 6
 
-# Change this if required
-MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
-
-# ======================================================
-# DAWN NEWS SOURCES
-# ======================================================
-
-# Individual RSS feeds used by fetch_article.py
-
-DAWN_EDITORIAL_FEED = "https://www.dawn.com/feeds/editorials"
-
+# Dawn RSS feeds (official, stable, far more reliable than scraping the homepage HTML)
+DAWN_EDITORIAL_FEED = "https://www.dawn.com/feeds/editorial"
 DAWN_HOME_FEED = "https://www.dawn.com/feeds/home"
-
 DAWN_PAKISTAN_FEED = "https://www.dawn.com/feeds/pakistan"
-
 DAWN_WORLD_FEED = "https://www.dawn.com/feeds/world"
 
-DAWN_BUSINESS_FEED = "https://www.dawn.com/feeds/business"
-
-# Combined list (optional, for future use)
-
-DAWN_FEEDS = [
-    DAWN_EDITORIAL_FEED,
-    DAWN_HOME_FEED,
-    DAWN_PAKISTAN_FEED,
-    DAWN_WORLD_FEED,
-    DAWN_BUSINESS_FEED,
-]
-
-# ======================================================
-# OUTPUT
-# ======================================================
-
 OUTPUT_DIR = "output"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# ======================================================
-# REQUEST SETTINGS
-# ======================================================
-
-HTTP_TIMEOUT = 120
-MAX_RETRIES = 5
-RETRY_DELAY = 20
-
-# ======================================================
-# AI SETTINGS
-# ======================================================
-
-HOURLY_BULLETIN_TOKENS = 600
-DAILY_SUMMARY_TOKENS = 1200
-PDF_SEARCH_TOKENS = 400
-
-TEMPERATURE = 0.4
-
-# ======================================================
-# VALIDATION
-# ======================================================
-
-missing = []
-
-if not GEMINI_API_KEY:
-    missing.append("GEMINI_API_KEY")
-
-if not TELEGRAM_BOT_TOKEN:
-    missing.append("TELEGRAM_BOT_TOKEN")
-
-if not TELEGRAM_CHAT_ID:
-    missing.append("TELEGRAM_CHAT_ID")
-
-if missing:
-    raise RuntimeError(
-        "Missing required environment variables: "
-        + ", ".join(missing)
-        + "\n\n"
-        "Add them as GitHub Secrets:\n"
-        "Settings → Secrets and variables → Actions"
-    )
-
-# ======================================================
-# STARTUP INFO
-# ======================================================
-
-print("===================================")
-print("CSS AI Agent Configuration Loaded")
-print("Model:", MODEL_NAME)
-print("Telegram Chat ID:", TELEGRAM_CHAT_ID)
-print("Output Directory:", OUTPUT_DIR)
-print("Feeds:", len(DAWN_FEEDS))
-print("===================================")

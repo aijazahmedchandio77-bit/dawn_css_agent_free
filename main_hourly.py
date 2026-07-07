@@ -1,7 +1,7 @@
 """
 Runs every hour, 24x a day (scheduled by .github/workflows/hourly.yml).
-Lightweight by design: just a fresh headline pool -> short bulletin -> Telegram.
-No MCQ/PDF generation here (that stays in main_daily.py) to keep API usage sane.
+Uses gemini-2.5-flash-lite, which has a much higher free daily-request quota
+than full Flash -- appropriate since this fires 24 times a day.
 """
 import traceback
 import datetime

@@ -1,190 +1,166 @@
 """
-Fetch Dawn articles safely.
-Works even if the Editorial RSS feed is empty.
+fetch_article.py
+Scrapes Dawn directly instead of using RSS.
 """
 
-import feedparser
 import requests
 from bs4 import BeautifulSoup
-import config
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; CSSPrepBot/1.0)"
+    "User-Agent": "Mozilla/5.0"
 }
 
+EDITORIAL_PAGE = "https://www.dawn.com/newspaper/editorial"
 
-EDITORIAL_FEEDS = [
-    getattr(config, "DAWN_EDITORIAL_FEED", ""),
-    "https://www.dawn.com/feeds/editorial",
-    "https://www.dawn.com/feeds/home",
-    "https://www.dawn.com/feeds/latest",
-]
+HOME_PAGE = "https://www.dawn.com/latest-news"
+
+
+def clean(text):
+    if not text:
+        return ""
+    return " ".join(text.split())
+
+
+def fetch_html(url):
+
+    r = requests.get(
+        url,
+        headers=HEADERS,
+        timeout=30,
+    )
+
+    r.raise_for_status()
+
+    return BeautifulSoup(r.text, "html.parser")
 
 
 def _fetch_full_text(url):
 
-    if not url:
-        return ""
-
     try:
 
-        response = requests.get(
-            url,
-            headers=HEADERS,
-            timeout=20,
-        )
+        soup = fetch_html(url)
 
-        response.raise_for_status()
+        article = soup.find("article")
 
-        soup = BeautifulSoup(
-            response.text,
-            "html.parser",
-        )
+        if article:
 
-        body = (
-            soup.find("div", class_="story__content")
-            or soup.find("article")
-        )
-
-        paragraphs = []
-
-        if body:
-
-            paragraphs = body.find_all("p")
+            ps = article.find_all("p")
 
         else:
 
-            paragraphs = soup.find_all("p")
+            ps = soup.find_all("p")
 
         text = "\n".join(
-            p.get_text(" ", strip=True)
-            for p in paragraphs
-            if len(p.get_text(strip=True)) > 20
+            clean(p.get_text())
+            for p in ps
+            if len(clean(p.get_text())) > 20
         )
 
-        return text.strip()
+        return text
 
     except Exception as e:
 
-        print("Full text failed:", e)
+        print(e)
 
         return ""
 
 
 def get_latest_editorial():
 
-    for feed_url in EDITORIAL_FEEDS:
+    try:
 
-        if not feed_url:
-            continue
+        soup = fetch_html(EDITORIAL_PAGE)
 
-        try:
+        link = soup.find("a", href=True)
 
-            print("Trying:", feed_url)
+        while link:
 
-            feed = feedparser.parse(feed_url)
+            href = link["href"]
 
-            if not feed.entries:
-                continue
+            if href.startswith("/"):
 
-            entry = feed.entries[0]
+                href = "https://www.dawn.com" + href
 
-            title = entry.get(
-                "title",
-                "Untitled",
-            )
+            if "/news/" in href:
 
-            link = entry.get(
-                "link",
-                "",
-            )
+                title = clean(link.get_text())
 
-            summary = entry.get(
-                "summary",
-                "",
-            )
+                summary = ""
 
-            full_text = _fetch_full_text(link)
+                full = _fetch_full_text(href)
 
-            if not full_text:
-                full_text = summary
+                if not full:
+                    full = summary
 
-            return {
-                "title": title,
-                "link": link,
-                "summary": summary,
-                "full_text": full_text,
-            }
+                return {
+                    "title": title,
+                    "link": href,
+                    "summary": summary,
+                    "full_text": full,
+                }
 
-        except Exception as e:
+            link = link.find_next("a", href=True)
 
-            print(
-                f"Feed failed {feed_url}: {e}"
-            )
+    except Exception as e:
 
-    print("No editorial feed available.")
+        print(e)
 
     return {
-        "title": "Dawn Editorial Unavailable",
+        "title": "Editorial unavailable",
         "link": "",
-        "summary": "Editorial feed unavailable today.",
-        "full_text": "Editorial feed unavailable today.",
+        "summary": "",
+        "full_text": "",
     }
 
 
 def get_headline_pool(limit_per_feed=15):
 
-    feeds = [
-        getattr(config, "DAWN_PAKISTAN_FEED", ""),
-        getattr(config, "DAWN_WORLD_FEED", ""),
-        getattr(config, "DAWN_HOME_FEED", ""),
-        "https://www.dawn.com/feeds/home",
-        "https://www.dawn.com/feeds/latest",
-    ]
+    news = []
 
-    headlines = []
+    try:
 
-    seen = set()
+        soup = fetch_html(HOME_PAGE)
 
-    for feed_url in feeds:
+        links = soup.find_all("a", href=True)
 
-        if not feed_url:
-            continue
+        seen = set()
 
-        try:
+        for a in links:
 
-            parsed = feedparser.parse(feed_url)
+            href = a["href"]
 
-            for entry in parsed.entries[:limit_per_feed]:
+            title = clean(a.get_text())
 
-                title = entry.get("title", "")
+            if len(title) < 20:
+                continue
 
-                if title in seen:
-                    continue
+            if title in seen:
+                continue
 
-                seen.add(title)
+            seen.add(title)
 
-                headlines.append(
-                    {
-                        "title": title,
-                        "summary": entry.get(
-                            "summary",
-                            "",
-                        ),
-                        "link": entry.get(
-                            "link",
-                            "",
-                        ),
-                    }
-                )
+            if href.startswith("/"):
+                href = "https://www.dawn.com" + href
 
-        except Exception as e:
+            if "/news/" not in href:
+                continue
 
-            print(
-                f"Headline feed failed: {e}"
+            news.append(
+                {
+                    "title": title,
+                    "summary": "",
+                    "link": href,
+                }
             )
 
-    return headlines
+            if len(news) >= limit_per_feed:
+                break
+
+    except Exception as e:
+
+        print(e)
+
+    return news
 
 
 if __name__ == "__main__":
@@ -195,8 +171,8 @@ if __name__ == "__main__":
 
     print(article["link"])
 
-    print(article["full_text"][:500])
+    print(article["full_text"][:1000])
 
     print()
 
-    print("Headlines:", len(get_headline_pool()))
+    print(get_headline_pool())

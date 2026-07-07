@@ -9,7 +9,7 @@ GEMINI_URL = (
 )
 
 
-def _call_gemini(prompt, max_tokens=1000):
+def _call_gemini(prompt, max_tokens=500):
 
     payload = {
         "contents": [
@@ -67,13 +67,12 @@ Title:
 {article['title']}
 
 Article:
-{article['full_text'][:1500]}
+{article['full_text'][:800]}
 
 Return ONLY valid JSON:
 
 {{
 "english_summary":"",
-"urdu_summary":"",
 "vocabulary":[
 {{"word":"","english":"","urdu":""}}
 ],
@@ -85,9 +84,6 @@ Return ONLY valid JSON:
 Rules:
 
 English Summary:
-100 words
-
-Urdu Summary:
 100 words
 
 Vocabulary:

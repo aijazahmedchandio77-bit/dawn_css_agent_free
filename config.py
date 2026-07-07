@@ -32,12 +32,26 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gemini-2.5-flash")
 # DAWN NEWS SOURCES
 # ======================================================
 
-# RSS feeds (change if Dawn updates them)
+# Individual RSS feeds used by fetch_article.py
+
+DAWN_EDITORIAL_FEED = "https://www.dawn.com/feeds/editorials"
+
+DAWN_HOME_FEED = "https://www.dawn.com/feeds/home"
+
+DAWN_PAKISTAN_FEED = "https://www.dawn.com/feeds/pakistan"
+
+DAWN_WORLD_FEED = "https://www.dawn.com/feeds/world"
+
+DAWN_BUSINESS_FEED = "https://www.dawn.com/feeds/business"
+
+# Combined list (optional, for future use)
+
 DAWN_FEEDS = [
-    "https://www.dawn.com/feeds/home",
-    "https://www.dawn.com/feeds/pakistan",
-    "https://www.dawn.com/feeds/world",
-    "https://www.dawn.com/feeds/business",
+    DAWN_EDITORIAL_FEED,
+    DAWN_HOME_FEED,
+    DAWN_PAKISTAN_FEED,
+    DAWN_WORLD_FEED,
+    DAWN_BUSINESS_FEED,
 ]
 
 # ======================================================

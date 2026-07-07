@@ -1,127 +1,112 @@
-# CSS/FIA Daily Dawn Agent (100% Free Version)
+# CSS/FIA Daily Dawn Agent (Free, Quota-Aware Version)
 
-Automates daily CSS/FIA prep from Dawn newspaper and delivers it to your Telegram —
-using only free services: GitHub Actions (free hosting/scheduling), Google Gemini
-(free AI API), and Telegram (free bot).
+Automates daily CSS/FIA prep from Dawn newspaper, delivered to Telegram — built
+entirely on free services: GitHub Actions, Google Gemini free tier, Telegram bot.
 
-## What it does
+## What changed in this version (fixing the crashes)
 
-**Daily package (once a day, ~8:00 AM PKT):**
-- Fetches today's Dawn editorial
-- 50-word gist in English
-- 50-word gist in Urdu
-- Full ~180-word summary
-- 8-10 important vocabulary words (CSS English relevance) with Urdu meanings
-- CSS-relevant study resource suggestions
-- 50 current affairs MCQs (mixed Pakistan + International), packaged into a
-  PDF with an answer key, sent as a Telegram document
+1. **Model name fix**: the previous version used `gemini-2.0-flash`, which
+   Google deprecated on **June 1, 2026**. Every single call was failing.
+   Now uses `gemini-2.5-flash` (daily) and `gemini-2.5-flash-lite` (hourly).
+2. **Smaller calls**: asking for all 50 MCQs in one response could hit the
+   output token limit mid-generation and produce broken JSON. Now the daily
+   job makes 4 small, focused calls instead of 1 giant one:
+   summary+vocab → 25 Pakistan MCQs → 25 International MCQs → resource suggestions.
+3. **Automatic retry**: a `429` (rate limited) or `5xx` error now waits and
+   retries with backoff instead of crashing the whole run.
+4. **Partial-failure tolerance**: if one of the 4 steps fails, the run still
+   sends you whatever succeeded, plus a note about what didn't — instead of
+   sending nothing at all.
+5. **Two models, two quota buckets**: the daily job uses `gemini-2.5-flash`
+   (~4 calls/day — trivial for any tier). The hourly job uses
+   `gemini-2.5-flash-lite`, which has a separate, higher daily quota than
+   full Flash, appropriate since it runs 24 times a day.
 
-**Hourly ping (24x a day):**
-- A short 5-6 line current affairs bulletin from the latest Pakistan + World headlines
+Google's free-tier request limits change periodically and vary by account —
+check your live limits any time at **https://aistudio.google.com** (Projects
+→ your project → rate limits) if you want the exact current numbers.
 
 ---
 
-## Step-by-step setup (about 15 minutes, no coding needed)
+## Step-by-step setup
 
 ### Step 1 — Get a free Gemini API key
 1. Go to **https://aistudio.google.com/app/apikey**
-2. Sign in with any Google account
-3. Click **Create API Key**
-4. Copy the key somewhere safe — you'll paste it into GitHub in Step 6
+2. Sign in with any Google account → **Create API Key** → copy it
+3. No credit card needed
 
-No credit card, no billing setup required.
+### Step 2 — Telegram bot
+1. Message **@BotFather** on Telegram → `/newbot` → follow prompts → copy the token
+2. Send your new bot any message (e.g. "hi") so it's allowed to message you back
 
-### Step 2 — Create your Telegram bot (skip if already done)
-1. Open Telegram, search for **@BotFather**
-2. Send `/newbot`, follow the prompts, name it anything
-3. BotFather gives you a **bot token** — copy it
-4. Open a chat with your new bot and send it any message (e.g. "hi") — this is required so the bot is allowed to message you back
+### Step 3 — GitHub repo
+1. github.com → **New repository** → name it, e.g. `css-dawn-agent`
+2. Visibility: **Public** (unlimited free Actions minutes)
+3. Leave README/.gitignore/license off → **Create repository**
 
-### Step 3 — Create a GitHub repository
-1. Go to **github.com** → sign up if you don't have an account
-2. Click **+** (top right) → **New repository**
-3. Repository name: e.g. `css-dawn-agent`
-4. Visibility: **Public** (gives unlimited free GitHub Actions minutes)
-5. Leave "Add README", "Add .gitignore", "Add license" all **off**
-6. Click **Create repository**
+### Step 4 — Upload the 9 main files
+`Add file → Upload files` → drag in: `config.py`, `fetch_article.py`,
+`ai_processor.py`, `pdf_builder.py`, `telegram_bot.py`, `main_daily.py`,
+`main_hourly.py`, `requirements.txt`, `README.md` → **Commit changes**
 
-### Step 4 — Upload all the files from this zip
-On your new repo's page:
-1. Click **Add file → Upload files**
-2. From the extracted `dawn_css_agent` folder, select and drag in these 9 files:
-   `config.py`, `fetch_article.py`, `ai_processor.py`, `pdf_builder.py`,
-   `telegram_bot.py`, `main_daily.py`, `main_hourly.py`, `requirements.txt`, `README.md`
-3. Click **Commit changes**
+### Step 5 — Create the two workflow files
+Browser drag-and-drop often fails on the hidden `.github` folder, so create
+these directly instead:
+1. `Add file → Create new file` → filename: `.github/workflows/daily.yml`
+   → paste in that file's contents → **Commit changes**
+2. Repeat for `.github/workflows/hourly.yml`
 
-### Step 5 — Add the two workflow files
-The `.github/workflows/` folder often doesn't drag-and-drop correctly through
-the browser, so create these two files directly instead:
-
-1. Click **Add file → Create new file**
-2. In the filename box, type exactly: `.github/workflows/daily.yml`
-   (typing the `/` makes GitHub create the folders automatically)
-3. Open `daily.yml` from your extracted folder in a text editor, copy everything, paste it into the big text box on GitHub
-4. Click **Commit changes**
-5. Repeat for a second file: filename `.github/workflows/hourly.yml`, paste in the contents of your `hourly.yml`, **Commit changes**
-
-Go back to your repo's main page and confirm you now see all 9 files plus a `.github` folder.
+Confirm on your repo's main page: 9 files + a `.github` folder should be visible.
 
 ### Step 6 — Add your secrets
-1. In your repo, click the **Settings** tab
-2. Left sidebar → **Secrets and variables** → **Actions**
-3. Click **New repository secret**, and add these one at a time (exact spelling matters):
+`Settings → Secrets and variables → Actions → New repository secret`:
 
-| Secret name | Value |
+| Name | Value |
 |---|---|
-| `GEMINI_API_KEY` | the key from Step 1 |
-| `TELEGRAM_BOT_TOKEN` | the token from Step 2 |
+| `GEMINI_API_KEY` | key from Step 1 |
+| `TELEGRAM_BOT_TOKEN` | token from Step 2 |
 | `TELEGRAM_CHAT_ID` | `6345421988` |
 
-### Step 7 — Turn on Actions
-Click the **Actions** tab at the top of your repo. If you see a button like
-"I understand my workflows, go ahead and enable them," click it.
+### Step 7 — Enable Actions
+**Actions** tab → click "I understand my workflows, go ahead and enable them" if prompted.
 
-### Step 8 — Test the daily workflow manually
-1. In the **Actions** tab, click **"Daily CSS Current Affairs Package"** in the left list
-2. Click **Run workflow** (dropdown) → **Run workflow** (confirm button)
-3. Wait ~1-2 minutes, refresh the page — a run will appear; click it to watch the logs
-4. Check your Telegram — you should receive the summary, gists, vocabulary, resource suggestions, and finally a PDF with 50 MCQs
+### Step 8 — Test both workflows manually
+1. **Actions** tab → **"Daily CSS Current Affairs Package"** → **Run workflow** → **Run workflow**
+2. Wait 1-3 minutes, refresh, click the run to watch logs live
+3. Check Telegram: you should get the summary, gists, vocabulary, resource
+   suggestions, and finally a PDF with 50 MCQs
+4. Repeat for **"Hourly Current Affairs Ping"** → check Telegram for the short bulletin
 
-### Step 9 — Test the hourly workflow manually
-Same as Step 8, but choose **"Hourly Current Affairs Ping"**. Check Telegram for the short bulletin.
-
-### Step 10 — Done, walk away
-Once both manual tests succeed, you're finished. The daily workflow fires automatically
-at 8 AM PKT, and the hourly one fires every hour, 24/7 — run entirely by GitHub's
-servers, with nothing needing to stay on at your end.
+### Step 9 — Done
+Once both manual tests succeed, the schedules take over automatically —
+daily at 8 AM PKT, hourly every hour, forever, run by GitHub's own servers.
 
 ---
 
 ## Troubleshooting
 
-- **Red ❌ on a run in the Actions tab**: click into it, open the failing step, and read
-  the error text. Copy/paste it back to me and I'll fix the code.
-- **No Telegram message arrives but the run shows green**: make sure you sent your bot
-  at least one message first (Step 2) — Telegram won't let a bot message you until you've
-  messaged it.
-- **Gemini API errors**: double-check the `GEMINI_API_KEY` secret has no extra spaces,
-  and that you copied the full key from Google AI Studio.
-- **Free tier limits**: Gemini's free tier has generous but real rate limits (per-minute
-  and per-day request caps). 24 hourly calls + 1 heavier daily call comfortably fits
-  within the free tier as of this writing — if Google changes the limits later, check
-  https://ai.google.dev/gemini-api/docs/rate-limits.
-- **GitHub pauses scheduled workflows after 60 days of zero repo activity.** Just make
-  any small commit, or manually run a workflow, every couple of months to keep it alive.
-- **Cron timing on GitHub is "best effort"** — during high load it can run a few minutes
-  late. This is normal GitHub platform behavior.
+- **Still see "model not found" errors**: Google occasionally renames/retires
+  free models. Open `config.py`, check `MODEL_NAME` / `MODEL_NAME_LITE`
+  against the current list at https://ai.google.dev/gemini-api/docs/models,
+  and update if needed.
+- **A run shows red ❌**: click into it in the Actions tab, open the failing
+  step, copy the error text, send it to me — I'll fix the code.
+- **Telegram message never arrives but the run is green**: make sure you
+  messaged your bot at least once first (Step 2).
+- **Frequent 429 errors**: your account's free-tier quota may be lower than
+  typical (Google adjusts this periodically). Check your live limits in AI
+  Studio; if needed, I can reduce the daily MCQ count further (e.g. 15+15
+  instead of 25+25) to fit a tighter quota — just tell me your numbers.
+- **GitHub pauses scheduled workflows after 60 days of zero repo activity** —
+  a small commit or manual run every couple of months keeps it alive.
 
 ## File overview
 
-- `config.py` — reads secrets/settings from environment
+- `config.py` — secrets, model names, timing settings
 - `fetch_article.py` — pulls today's editorial + headline pool via Dawn RSS feeds
-- `ai_processor.py` — all Gemini API calls (summary, gists, vocab, 50 MCQs, resource suggestions)
+- `ai_processor.py` — all Gemini calls: retry/backoff, split MCQ batches, robust JSON parsing
 - `pdf_builder.py` — builds the daily MCQ PDF
 - `telegram_bot.py` — sends text/documents to your Telegram chat
-- `main_daily.py` — orchestrates the once-a-day full package
+- `main_daily.py` — orchestrates the once-a-day package, tolerant of partial failures
 - `main_hourly.py` — orchestrates the lightweight hourly bulletin
 - `.github/workflows/daily.yml`, `.github/workflows/hourly.yml` — the schedules
